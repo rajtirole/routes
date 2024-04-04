@@ -33,23 +33,26 @@ const register = asyncHandler(async (req, res) => {
       $or: [{ userName }, { email }],
     });
     if (isUser) {
-      fs.unlinkSync(req.files?.avatar[0]?.path);
+      if(req.files?.avatar?.[0].path){
+      fs.unlinkSync(req?.files?.avatar?.[0]?.path);
+      }
       let coverImageLocalFile;
-      if (req.files.coverImage) {
-        coverImageLocalFile = req.files?.coverImage[0]?.path;
+      if (req.files?.coverImage) {
+        coverImageLocalFile = req.files?.coverImage?.[0]?.path;
         fs.unlinkSync(coverImageLocalFile);
       }
       throw new ApiError(400, "user already registered");
     }
-    const avatarLocalFile = req.files?.avatar[0]?.path;
-    let coverImageLocalFile;
-    
-    if (req.files.coverImage) {
-      coverImageLocalFile = req.files?.coverImage[0]?.path;
-    }
+    const avatarLocalFile = req.files?.avatar?.[0]?.path;
     if (!avatarLocalFile) {
       throw new ApiError(400, "Avatar image not found");
     }
+    let coverImageLocalFile;
+
+    if (req.files.coverImage) {
+      coverImageLocalFile = req.files?.coverImage?.[0]?.path;
+    }
+
     const avatarImage = await cloudinaryImageUploader(avatarLocalFile);
     const coverImage = await cloudinaryImageUploader(coverImageLocalFile);
     if (!avatarImage) {
@@ -63,9 +66,8 @@ const register = asyncHandler(async (req, res) => {
       coverImage: coverImage?.url || "",
       password,
     });
-    if(!user){
+    if (!user) {
       throw new ApiError(500, "user register not success");
-
     }
     const createUser = await User.findById(user._id).select(
       "-password -refreshToken"
@@ -77,16 +79,20 @@ const register = asyncHandler(async (req, res) => {
       .status(201)
       .json(new ApiResponse(200, createUser, "user register success"));
   } catch (error) {
-     throw new ApiError(error.statusCode||500,error.message||'user register not success', error.error);
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "user register not success",
+      error.error
+    );
   }
 });
 const login = asyncHandler(async (req, res) => {
   try {
     const { userName, email, password } = req.body;
-    if ((!email&&!userName)||!password) {
+    if ((!email && !userName) || !password) {
       throw new ApiError(400, "All feilds are required");
     }
-    const user = await User.  findOne({
+    const user = await User.findOne({
       $or: [{ email }, { userName }],
     });
     if (!user) throw new ApiError(400, "user not found");
@@ -98,8 +104,10 @@ const login = asyncHandler(async (req, res) => {
       user._id
     );
     console.log(accessToken, refreshToken);
-    const data = await User.findById(user._id).select("-password -refreshToken");
-  
+    const data = await User.findById(user._id).select(
+      "-password -refreshToken"
+    );
+
     const options = { httpOnly: true, secure: true };
     res
       .status(200)
@@ -107,8 +115,11 @@ const login = asyncHandler(async (req, res) => {
       .cookie("refreshToken", refreshToken, options)
       .json(new ApiResponse(201, { data, accessToken }, "user login success"));
   } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message||"user login not success", error.error);
-    
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "user login not success",
+      error.error
+    );
   }
 });
 const logout = asyncHandler(async (req, res, next) => {
@@ -124,8 +135,7 @@ const logout = asyncHandler(async (req, res, next) => {
       .clearCookie("refreshToken", options)
       .json(new ApiResponse(200, {}, "user logout success"));
   } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message, error.error);
-    
+    throw new ApiError(error.statusCode || 500, error.message, error.error);
   }
 });
 const refreshToken = asyncHandler(async (req, res, next) => {
@@ -146,7 +156,9 @@ const refreshToken = asyncHandler(async (req, res, next) => {
     if (token !== user?.refreshToken) {
       throw new ApiError(400, "refresh token not verify");
     }
-    const { refreshToken, accessToken } = await generateAccessAndRefreshToken(id);
+    const { refreshToken, accessToken } = await generateAccessAndRefreshToken(
+      id
+    );
     if (!refreshToken || !accessToken) {
       throw new ApiError(500, "refresh token generate not success");
     }
@@ -157,32 +169,38 @@ const refreshToken = asyncHandler(async (req, res, next) => {
       .cookie("refreshToken", refreshToken, options)
       .json(new ApiResponse(200, user, "refresh token generate success"));
   } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message||"refresh token generate not success", error.error);
-    
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "refresh token generate not success",
+      error.error
+    );
   }
 });
 const changePassword = asyncHandler(async (req, res) => {
- try {
-   const { password, newPasssword } = req?.body;
-   if (!password || !newPasssword) {
-     throw new ApiError(400, "All feilds are required");
-   }
-   const id = req?.user?._id;
-   const user = await User.findById(id);
-   if (!user) {
-     throw new ApiError(400, "user not found");
-   }
-   const isPassword = await user.isPassword(password);
-   if (!isPassword) {
-     throw new ApiError(400, "Invalid credentials");
-   }
-   user.password = newPasssword;
-   await user.save({ validateBeforeSave: false });
-   res.status(200).json(new ApiResponse(200, {}, "password change success"));
- } catch (error) {
-  throw new ApiError(error.statusCode||500,error.message||"password change success", error.error);
-  
- }
+  try {
+    const { password, newPasssword } = req?.body;
+    if (!password || !newPasssword) {
+      throw new ApiError(400, "All feilds are required");
+    }
+    const id = req?.user?._id;
+    const user = await User.findById(id);
+    if (!user) {
+      throw new ApiError(400, "user not found");
+    }
+    const isPassword = await user.isPassword(password);
+    if (!isPassword) {
+      throw new ApiError(400, "Invalid credentials");
+    }
+    user.password = newPasssword;
+    await user.save({ validateBeforeSave: false });
+    res.status(200).json(new ApiResponse(200, {}, "password change success"));
+  } catch (error) {
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "password change success",
+      error.error
+    );
+  }
 });
 const getUser = asyncHandler(async (req, res) => {
   try {
@@ -192,12 +210,11 @@ const getUser = asyncHandler(async (req, res) => {
     }
     return res.status(200).json(new ApiResponse(200, user, "user get success"));
   } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message, error.error);
-
+    throw new ApiError(error.statusCode || 500, error.message, error.error);
   }
 });
 const updateUser = asyncHandler(async (req, res) => {
-try {
+  try {
     const { userName, email, fullName } = req.body;
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -217,10 +234,9 @@ try {
     return res
       .status(200)
       .json(new ApiResponse(200, user, "user data update success"));
-} catch (error) {
-  throw new ApiError(error.statusCode||500,error.message, error.error);
-  
-}
+  } catch (error) {
+    throw new ApiError(error.statusCode || 500, error.message, error.error);
+  }
 });
 const updateUserAvatar = asyncHandler(async (req, res) => {
   try {
@@ -249,38 +265,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, user, "user avatar update success"));
   } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message, error.error);
-
-  }
-});
-const updateUsercover = asyncHandler(async (req, res) => {
-  try {
-    const updateUsercoverLocalFile = req.file?.path;
-    if (!updateUsercoverLocalFile) {
-      throw new ApiError(500, "coverImage not found");
-    }
-    const coverImage = await cloudinaryImageUploader(updateUsercoverLocalFile);
-    if (!coverImage?.url) {
-      throw new ApiError(500, "coverImage change not success");
-    }
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        $set: {
-          coverImage: coverImage.url,
-        },
-      },
-      { new: true }
-    ).select("-password -refreshToken");
-    if (!user) {
-      throw new ApiError(400, "user not found");
-    }
-    return res
-      .status(200)
-      .json(new ApiResponse(200, user, "user coverImage update success"));
-  } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message, error.error);
-    
+    throw new ApiError(error.statusCode || 500, error.message, error.error);
   }
 });
 const getUserChannel = asyncHandler(async (req, res) => {
@@ -350,76 +335,9 @@ const getUserChannel = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, channel[0], "channel get success"));
   } catch (error) {
-    throw new ApiError(error.statusCode||500,error.message, error.error);
-    
+    throw new ApiError(error.statusCode || 500, error.message, error.error);
   }
 });
-const watchHistory = asyncHandler(async (req, res) => {
- try {
-   const id = req.user._id;
-   if (!id) {
-     throw new ApiError(400, "user not found");
-   }
-   const watchHistory = await User.aggregate([
-     {
-       $match: {
-         _id: id,
-       },
-     },
-     {
-       $lookup: {
-         from: "videos",
-         localField: "watchHistory",
-         foreignField: "_id",
-         as: "watchHistory",
-         pipeline: [
-           {
-             $lookup: {
-               from: "users",
-               localField: "owner",
-               foreignField: "_id",
-               as: "owner",
-               pipeline: [
-                 {
-                   $project: {
-                     fullName: 1,
-                     userName: 1,
-                     avatar: 1,
-                     coverImage: 1,
-                   },
-                 },
-                 {
-                   $addFields: {
-                     owner: {
-                       $first: "$owner",
-                     },
-                   },
-                 },
-               ],
-             },
-           },
-         ],
-       },
-     },
-   ]);
-   if (!watchHistory) {
-     throw new ApiError(500, "watchHistory not found");
-   }
-   res
-     .status(200)
-     .json(
-       new ApiResponse(
-         200,
-         watchHistory[0].watchHistory,
-         "watch history get success"
-       )
-     );
- } catch (error) {
-  throw new ApiError(error.statusCode||500,error.message, error.error);
-  
- }
-});
-
 export {
   register,
   login,
@@ -428,8 +346,6 @@ export {
   getUser,
   updateUser,
   updateUserAvatar,
-  updateUsercover,
   getUserChannel,
-  watchHistory,
   changePassword,
 };
